@@ -1,2 +1,9 @@
-[phases.setup]
-aptPackages = ["ffmpeg"]
+[build]
+command = '''
+  # Download the static build of ffmpeg
+  curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz &&
+  # Extract the archive
+  tar -xf ffmpeg.tar.xz &&
+  # Copy the ffmpeg binary into a directory in PATH
+  cp ffmpeg-*-static/ffmpeg /usr/local/bin/ffmpeg
+'''
