@@ -10,7 +10,6 @@ TOKEN = os.environ.get("DISCORD_TOKEN")
 if not TOKEN:
     print("Warning: DISCORD_TOKEN not found in environment variables. Make sure to set it in the Secrets tab.")
 
-keep_alive()
 
 # Configuration for youtube_dl to only download audio and to be quiet in console output
 ytdl_format_options = {
