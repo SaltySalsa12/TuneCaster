@@ -1,13 +1,18 @@
 [build]
-command = '''
-  # Download the static build of ffmpeg
+builder = "nixpacks"
+buildCommand = '''
+  echo "Installing static ffmpeg build..."
   curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz &&
-  # Extract the downloaded archive
   tar -xf ffmpeg.tar.xz &&
-  # Copy the ffmpeg binary to /usr/bin (commonly in PATH)
   cp ffmpeg-*-static/ffmpeg /usr/bin/ffmpeg &&
-  # Ensure the binary is executable
   chmod +x /usr/bin/ffmpeg &&
-  # Optional: Print the installed ffmpeg version for confirmation
+  echo "ffmpeg installed:" &&
   ffmpeg -version
 '''
+
+[deploy]
+preDeployCommand = []
+startCommand = "python tunecast.py"  # Adjust this if your bot entry file is different
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "never"
