@@ -4,7 +4,6 @@ import yt_dlp as youtube_dl
 import asyncio
 from collections import deque
 import re
-from keep_alive import keep_alive
 import os
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
