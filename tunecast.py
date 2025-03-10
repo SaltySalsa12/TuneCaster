@@ -36,7 +36,6 @@ intents.message_content = True  # Changed to False as this is a privileged inten
 
 # FFmpeg options for processing audio
 ffmpeg_options = {
-    'executable': 'ffmpeg',
     'before_options':
     '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
