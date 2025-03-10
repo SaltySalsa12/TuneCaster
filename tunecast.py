@@ -259,4 +259,4 @@ async def helpmusic(ctx):
     await ctx.send(commands_list)
 
 # Replace with your actual Discord bot token
-bot.run('MTM0ODc1MzAwNTQ4MjIxNzQ5Mw.GIxKAi.nj4BdtcRoJbqKaz3yhCU7knU_TFP5ejYab2fJU')
+bot.run('TOKEN')
