@@ -87,12 +87,7 @@ ffmpeg_options = {
     '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn',
     # Try multiple possible paths to ffmpeg
-    'executable': os.environ.get('FFMPEG_PATH', 
-                 os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg') 
-                 if os.path.exists(os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg'))
-                 else '/usr/local/bin/ffmpeg' if os.path.exists('/usr/local/bin/ffmpeg')
-                 else '/usr/bin/ffmpeg' if os.path.exists('/usr/bin/ffmpeg')
-                 else 'ffmpeg')  # Default to letting system find it
+    'executable': '/root/.local/bin/ffmpeg'# Default to letting system find it
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
