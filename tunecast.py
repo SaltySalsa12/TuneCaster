@@ -5,10 +5,13 @@ import asyncio
 from collections import deque
 import re
 import os
-
-# ffmpeg
 import subprocess
 import sys
+
+TOKEN = os.environ.get("DISCORD_TOKEN")
+if not TOKEN:
+    print("Warning: DISCORD_TOKEN not found in environment variables. Make sure to set it in the Secrets tab.")
+
 
 def ensure_ffmpeg():
     """Check if FFmpeg is available and try to download if not"""
@@ -48,14 +51,11 @@ def ensure_ffmpeg():
             print(f"Failed to install FFmpeg: {e}")
             return False
 
+
 # Call this function before initializing your bot
 if not ensure_ffmpeg():
     print("Error: FFmpeg is required but couldn't be installed.")
     sys.exit(1)
-
-TOKEN = os.environ.get("DISCORD_TOKEN")
-if not TOKEN:
-    print("Warning: DISCORD_TOKEN not found in environment variables. Make sure to set it in the Secrets tab.")
 
 
 # Configuration for youtube_dl to only download audio and to be quiet in console output
@@ -85,7 +85,14 @@ intents.message_content = True  # Changed to False as this is a privileged inten
 ffmpeg_options = {
     'before_options':
     '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn'
+    'options': '-vn',
+    # Try multiple possible paths to ffmpeg
+    'executable': os.environ.get('FFMPEG_PATH', 
+                 os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg') 
+                 if os.path.exists(os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg'))
+                 else '/usr/local/bin/ffmpeg' if os.path.exists('/usr/local/bin/ffmpeg')
+                 else '/usr/bin/ffmpeg' if os.path.exists('/usr/bin/ffmpeg')
+                 else 'ffmpeg')  # Default to letting system find it
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
@@ -106,6 +113,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def create_source(cls, search, *, loop=None, requester=None):
         loop = loop or asyncio.get_event_loop()
+        
+        # Print the FFmpeg path being used for debugging
+        print(f"Using FFmpeg at: {ffmpeg_options.get('executable', 'system default')}")
 
         # Determine if search is a URL or search term
         if not re.match(r'https?://', search):
