@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Download and configure FFmpeg
 echo "Setting up FFmpeg..."
 mkdir -p /tmp/ffmpeg_setup
