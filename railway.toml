@@ -1,18 +1,21 @@
 [build]
 builder = "nixpacks"
 buildCommand = '''
-  echo "Installing static ffmpeg build..."
-  curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz &&
-  tar -xf ffmpeg.tar.xz &&
-  cp ffmpeg-*-static/ffmpeg /usr/bin/ffmpeg &&
-  chmod +x /usr/bin/ffmpeg &&
+  apt-get update && 
+  apt-get install -y wget xz-utils &&
+  wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz &&
+  mkdir -p ffmpeg-temp &&
+  tar -xf ffmpeg-master-latest-linux64-gpl.tar.xz -C ffmpeg-temp --strip-components=1 &&
+  cp ffmpeg-temp/bin/ffmpeg /usr/local/bin/ &&
+  chmod +x /usr/local/bin/ffmpeg &&
+  rm -rf ffmpeg-temp ffmpeg-master-latest-linux64-gpl.tar.xz &&
   echo "ffmpeg installed:" &&
   ffmpeg -version
 '''
 
 [deploy]
 preDeployCommand = []
-startCommand = "python tunecast.py"  # Adjust this if your bot entry file is different
+startCommand = "python tunecast.py"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "never"
