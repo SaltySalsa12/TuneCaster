@@ -7,6 +7,9 @@ import re
 import os
 import subprocess
 import sys
+import platform
+import json
+from pathlib import Path
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 if not TOKEN:
@@ -52,24 +55,93 @@ def ensure_ffmpeg():
             return False
 
 
-# Call this function before initializing your bot
+def get_youtube_cookies():
+    """Get cookies from environment variable or try to create dummy cookies"""
+    # First check if cookies are provided as environment variable
+    cookies_json = os.environ.get("YOUTUBE_COOKIES")
+    if cookies_json:
+        try:
+            # Try to parse the cookies JSON
+            cookies = json.loads(cookies_json)
+            cookies_file = Path("./youtube_cookies.txt")
+            
+            # Convert to Netscape cookies format
+            cookie_lines = []
+            for cookie in cookies:
+                domain = cookie.get('domain', '.youtube.com')
+                flag = 'TRUE'
+                path = cookie.get('path', '/')
+                secure = 'TRUE' if cookie.get('secure', True) else 'FALSE'
+                expiry = str(cookie.get('expirationDate', 1735689600))  # Default to some future date
+                name = cookie.get('name', '')
+                value = cookie.get('value', '')
+                
+                if name and value:  # Only include cookies with name and value
+                    cookie_lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{value}")
+            
+            # Write the cookies to a file
+            with open(cookies_file, 'w') as f:
+                f.write('\n'.join(cookie_lines))
+            
+            print(f"Created cookies file at {cookies_file}")
+            return str(cookies_file)
+        except Exception as e:
+            print(f"Failed to parse cookies from environment variable: {e}")
+    
+    # Try to export cookies from browser (this is a fallback and may not work in all environments)
+    try:
+        # Detect the platform and browser
+        system = platform.system()
+        
+        if system == "Windows" and os.path.exists(os.path.expanduser("~\\AppData\\Local\\Google\\Chrome")):
+            # Windows Chrome
+            cookies_file = Path("./yt_cookies.txt")
+            subprocess.run(
+                f"yt-dlp --cookies-from-browser chrome --cookies {cookies_file}", 
+                shell=True, 
+                check=True
+            )
+            return str(cookies_file)
+        elif system == "Darwin" and os.path.exists(os.path.expanduser("~/Library/Application Support/Google/Chrome")):
+            # macOS Chrome
+            cookies_file = Path("./yt_cookies.txt")
+            subprocess.run(
+                f"yt-dlp --cookies-from-browser chrome --cookies {cookies_file}", 
+                shell=True, 
+                check=True
+            )
+            return str(cookies_file)
+        elif system == "Linux" and os.path.exists(os.path.expanduser("~/.config/google-chrome")):
+            # Linux Chrome
+            cookies_file = Path("./yt_cookies.txt")
+            subprocess.run(
+                f"yt-dlp --cookies-from-browser chrome --cookies {cookies_file}", 
+                shell=True, 
+                check=True
+            )
+            return str(cookies_file)
+    except Exception as e:
+        print(f"Failed to export cookies from browser: {e}")
+    
+    print("No YouTube cookies found, YouTube might require verification for some videos")
+    return None
+
+
+# Call these functions before initializing your bot
 if not ensure_ffmpeg():
     print("Error: FFmpeg is required but couldn't be installed.")
     sys.exit(1)
 
+# Get YouTube cookies
+cookies_file = get_youtube_cookies()
 
 # Configuration for youtube_dl to only download audio and to be quiet in console output
 ytdl_format_options = {
-    'format':
-    'bestaudio/best',
-    'quiet':
-    True,
-    'noplaylist':
-    False,
-    'default_search':
-    'auto',
-    'source_address':
-    '0.0.0.0',
+    'format': 'bestaudio/best',
+    'quiet': True,
+    'noplaylist': False,
+    'default_search': 'auto',
+    'source_address': '0.0.0.0',
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
@@ -77,17 +149,25 @@ ytdl_format_options = {
     }],
 }
 
+# Add cookies if available
+if cookies_file:
+    ytdl_format_options['cookiefile'] = cookies_file
+
 # IMPORTANT: Remove privileged intents that aren't enabled in the Discord Developer Portal
 intents = discord.Intents.default()
 intents.message_content = True  # Changed to False as this is a privileged intent
 
 # FFmpeg options for processing audio
 ffmpeg_options = {
-    'before_options':
-    '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn',
     # Try multiple possible paths to ffmpeg
-    'executable': '/root/.local/bin/ffmpeg'# Default to letting system find it
+    'executable': os.environ.get('FFMPEG_PATH', 
+                 os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg') 
+                 if os.path.exists(os.path.join(os.path.expanduser('~/.local/bin'), 'ffmpeg'))
+                 else '/usr/local/bin/ffmpeg' if os.path.exists('/usr/local/bin/ffmpeg')
+                 else '/usr/bin/ffmpeg' if os.path.exists('/usr/bin/ffmpeg')
+                 else 'ffmpeg')  # Default to letting system find it
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
@@ -111,23 +191,28 @@ class YTDLSource(discord.PCMVolumeTransformer):
         
         # Print the FFmpeg path being used for debugging
         print(f"Using FFmpeg at: {ffmpeg_options.get('executable', 'system default')}")
+        print(f"Using cookies: {'Yes' if 'cookiefile' in ytdl_format_options else 'No'}")
 
         # Determine if search is a URL or search term
         if not re.match(r'https?://', search):
             search = f"ytsearch:{search}"
 
-        # Extract the data in a separate thread to not block the event loop
-        data = await loop.run_in_executor(
-            None, lambda: ytdl.extract_info(search, download=False))
+        try:
+            # Extract the data in a separate thread to not block the event loop
+            data = await loop.run_in_executor(
+                None, lambda: ytdl.extract_info(search, download=False))
 
-        if 'entries' in data:
-            # Take first item from a playlist
-            data = data['entries'][0]
+            if 'entries' in data:
+                # Take first item from a playlist
+                data = data['entries'][0]
 
-        source = cls(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options),
-                     data=data)
-        source.requester = requester
-        return source
+            source = cls(discord.FFmpegPCMAudio(data['url'], **ffmpeg_options),
+                        data=data)
+            source.requester = requester
+            return source
+        except Exception as e:
+            print(f"YouTube extraction error: {e}")
+            raise Exception(f"Could not extract audio. YouTube may be detecting the bot. If you have a YouTube account, try setting YOUTUBE_COOKIES in the Environment Variables. Error: {e}")
 
 
 # Music player class to handle queue and playback
@@ -242,7 +327,7 @@ async def play(ctx, *, query: str):
 
             await ctx.send(f"Added **{source.title}** to the queue.")
         except Exception as e:
-            await ctx.send(f"An error occurred: {e}")
+            await ctx.send(f"An error occurred: {str(e)}")
 
 
 # Command to show the current queue
