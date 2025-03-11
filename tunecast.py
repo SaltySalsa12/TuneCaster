@@ -6,6 +6,53 @@ from collections import deque
 import re
 import os
 
+# ffmpeg
+import subprocess
+import sys
+
+def ensure_ffmpeg():
+    """Check if FFmpeg is available and try to download if not"""
+    try:
+        # Try to run ffmpeg -version
+        subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        print("FFmpeg is installed and working")
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        print("FFmpeg not found in PATH, attempting to download...")
+        try:
+            # Create temporary directory
+            os.makedirs('/tmp/ffmpeg_download', exist_ok=True)
+            os.chdir('/tmp/ffmpeg_download')
+            
+            # Download static build
+            subprocess.run('curl -L https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz -o ffmpeg.tar.xz', shell=True, check=True)
+            subprocess.run('tar -xf ffmpeg.tar.xz', shell=True, check=True)
+            
+            # Find the extracted directory (it might have a different name)
+            extracted_dir = [d for d in os.listdir('.') if d.startswith('ffmpeg-') and os.path.isdir(d)][0]
+            
+            # Copy ffmpeg binary to a directory in PATH
+            ffmpeg_path = os.path.join(os.getcwd(), extracted_dir, 'bin', 'ffmpeg')
+            os.makedirs(os.path.expanduser('~/.local/bin'), exist_ok=True)
+            user_bin_path = os.path.expanduser('~/.local/bin/ffmpeg')
+            subprocess.run(f'cp {ffmpeg_path} {user_bin_path}', shell=True, check=True)
+            subprocess.run(f'chmod +x {user_bin_path}', shell=True, check=True)
+            
+            # Add to PATH if not already there
+            if os.path.expanduser('~/.local/bin') not in os.environ['PATH']:
+                os.environ['PATH'] = os.path.expanduser('~/.local/bin') + ':' + os.environ['PATH']
+            
+            print(f"FFmpeg installed to {user_bin_path}")
+            return True
+        except Exception as e:
+            print(f"Failed to install FFmpeg: {e}")
+            return False
+
+# Call this function before initializing your bot
+if not ensure_ffmpeg():
+    print("Error: FFmpeg is required but couldn't be installed.")
+    sys.exit(1)
+
 TOKEN = os.environ.get("DISCORD_TOKEN")
 if not TOKEN:
     print("Warning: DISCORD_TOKEN not found in environment variables. Make sure to set it in the Secrets tab.")
